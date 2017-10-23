@@ -90,6 +90,10 @@ int main()
 	uint32_t cfgval_arr[80] = { 0 };
 	struct stru stru2;
 	struct stru *stru1;
+	unsigned char ch_a = 'T';
+
+	printf("ch_a = %c\n", ch_a);
+
 	stru1 = &stru2;
 
 	stru1 = fun_init(stru1);
