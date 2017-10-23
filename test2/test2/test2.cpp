@@ -91,8 +91,9 @@ int main()
 	struct stru stru2;
 	struct stru *stru1;
 	unsigned char ch_a = 'T';
+	unsigned char ch_b = 'A';
 
-	printf("ch_a = %c\n", ch_a);
+	printf("ch_a = %c, ch_b = %c\n", ch_a, ch_b);
 
 	stru1 = &stru2;
 
