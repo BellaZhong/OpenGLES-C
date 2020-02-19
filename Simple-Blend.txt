@@ -1,0 +1,38 @@
+入门级 OpenGL ES Blend
+
+Refer to page: https://www.learnopengles.com/android-lesson-five-an-introduction-to-blending/
+
+Blend 原意为混合，基本作用为，color1*color2=color3，用两种颜色产生另外一种颜色，运算规则可以定制
+
+opengles中，blend发生在fragment shader计算出最终的颜色的阶段，如果不打开blend, 颜色将被原样输出到framebuffer, 否则，会经过一个blend的过程，再输出到framebuffer
+
+关键函数
+glBlendFunc(GLenum sfactor, GLenum dfactor)
+glBlendEquation(GLenum mode)
+glBlendColor(GLfloat red, GLFloat green, GLFloat blue, GLFloat alpha)
+
+glBlendFunc()指定src blending factor和dst blending factor，默认为GL_ONE
+glBlendEquation()指定src和dst之间的计算方式，如果指定为加法，GL_FUNC_ADD，则最终的输出颜色可由下式计算
+output = (source factor * source fragment) + (destination factor * destination fragment)
+可简单理解为blend是一种类似于图层的覆盖，如果一种颜色的图层覆盖在另一种颜色的图层上，各自的系数为1，0的话，就只能看见其中某一个图层的颜色，也即其中一个图层为透明，如果各自有系数的话，则会产生不同的颜色，例如当三原色两两混合时，是会产生不同的颜色的
+
+equation里的加法，等同于颜色的三原色的混合，与自然界中颜色的三原色混合原理一致，叠加
+output = (1 * source fragment) + (1 * destination fragment)
+
+equation里的乘法，等同于光线的三原色的混合，或者是发光物体的反射光模型，被用于绘制游戏地图中的光照和阴影区域
+output = (destination fragment * source fragment) + (0 * destination fragment)
+
+equation里的插值，即加乘结合，
+假如我们画一个图层为(0r, 1g, 0b)绿色，25%不透明，当前屏幕上有的图层是(1r, 0g, 0b)红色，则插值blend之后，
+output = (source factor * source fragment) + (destination factor * destination fragment)
+output = (source alpha * source fragment) + ((1 – source alpha) * destination fragment)
+output = (0.25 * (0r, 1g, 0b)) + (0.75 * (1r, 0g, 0b))
+output = (0r, 0.25g, 0b) + (0.75r, 0g, 0b)
+output = (0.75r, 0.25g, 0b)
+
+Simple Sample in code how to set blend parameter
+glEnable(GL_BLEND);                                                                                             
+glBlendFunc(GL_ONE, GL_ZERO);                                                                                              
+glBlendEquation(GL_FUNC_ADD);                                                                                                  
+glBlendColor(0.0f, 0.0f, 0.0f, 0.0f);
+
