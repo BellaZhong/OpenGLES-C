@@ -1,0 +1,118 @@
+OpenGL ES Texture
+
+1. 简单来说，纹理是GPU中的一块存放图像数据的内存。对应的有texture object，这是真正用于存放图像数据的内存，GPU memory
+
+2. 一般来说，纹理是由一个图片或者图像贴上去的，这个图片或者图像是在cpu端准备好的，准备好了以后送给gpu，准备的时候，像素按照一定规则排序，gpu读入的时候，他是按照硬件的对齐原则读入的，n bytes为一行，逐行读入，n一般为2的整数次幂。读写像素的对齐规则，由void glPixelStorei(GLenum pname, GLint param)指定。这个函数的第一个输入参数只能是GL_UNPACK_ALIGNMENT或者GL_PACK_ALIGNMENT。GL_UNPACK_ALIGNMENT，是将数据从CPU端解包出来的时候的对齐准则。而GL_PACK_ALIGNMENT则是将数据从GPU端读取出来的对齐准则。如果使用了其他参数，那么就会出现GL_INVALID_ENUM的error。第二个输入参数为一个整形数据用于指定参数的新的值。默认为4，可以设置的值为1、2、4、8。如果使用了其他值，那么就会出现GL_INVALID_VALUE的error。这个函数没有输出参数。
+
+3.void glGenTextures(GLsizei n, GLuint * textures)用于生成一个纹理。五大函数，类比于buffer object,
+
+buffer object:
+glGenBuffers
+glBindBuffer
+glBufferData
+glBufferSubData
+glDeleteBuffers
+
+texture object:
+glGenTextures
+glBindTexture
+glTexImage2D
+glTexSubImage2D
+glDeleteTexture
+
+这个函数的第一个输入参数的意思是该API会生成n个texture object name，当n小于0的时候，出现INVALID_VALUE的错误。第二个输入参数用于保存被创建的texture object name。这些texture object name都是一些数字，而且假如一次性生成多个texture object name，它们不一定必须是连续的数字。texture object name是uint类型，而且0已经被预留了，所以肯定是一个大于0的整数。这个函数没有输出参数。当创建成功的时候，会在第二个参数textures中生成n个之前没有使用过的texture objects的name。然后这些name会被标记为已使用，而这个标记只对glGenTextures这个API有效，也就是再通过这个API生成更多的texture object name的时候，不会使用之前创建的这些texture objects name。
+
+4.void glBindTexture(GLenum target, GLuint texture)这个函数的第一个输入参数指定texture object的类型，就好像buffer object分为VBO和IBO一样。texture object分为2D texture和CUBEMAP texture 等等。2D texture就是一张2D的纹理图片，CUBEMAP的texture，是用于组成Cube的texture，立方体有6个面，所以CUBEMAP texture是由6张 texture组成的。第二个输入参数为刚才glGenTextures得到的texture object name。
+
+这个函数没有输出参数，假如传入的texture是刚被创建的texture object name，那么它还没有被创建和关联一个texture object，那么通过这个API，就会生成一个指定类型的texture object，且与这个texture object name关联在一起。之后指定某个texture object name的时候，也就相当于指定这个texture object。
+
+5.texture object是一个容器，指定纹理的所有数据，格式，filter mode等等。texture object内容在其生命周期内保持不变，直至该纹理被delete。与bufer object不同的是，texture object是不能直接提交给GPU使用的，中间经过了一层texture unit,纹理单元，glBindBuffer可以直接将buffer object提交给GPU使用，但是texture object必须要先提交给纹理单元，再提交给GPU。默认纹理单元为GL_TEXTURE0，最多8个纹理单元，也就是说，如果我们创建了很多个游离的texture object，要想改变或者操作其中的内容，必须将他提交给当前GPU正在使用的纹理单元，然后再操作。而GPU中同一时间一个thread的一个context中只能有一个纹理单元是处于active状态，而一个纹理单元中同一时间同一个类型只能有一个texture。
+一个texture object可以放在多个纹理单元中，而任何对该texture object的操作，都会影响到所有与其关联的纹理单元。比如删除一个2D的texture object，而这个texture object原本可能被放入0、1、4这3个纹理单元中。那么就相当于把这个纹理从这三个纹理单元中都取出来，也就相当于先把这三个纹理单元分别进行了active，然后进行了glBindTexture（GL_TEXTURE_2D，0）的操作。再比如对这个2D texture object进行修改，那么在使用这三个纹理单元中的GL_TEXTURE_2D的时候，使用到的都是修改之后的值。
+
+6.void glActiveTexture(GLenum texture)使能一个纹理单元
+
+7.void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid * data)
+创建了texture object之后，就需要给这个texture object赋予数据了，而glTexImage2D这个API就是通过OpenGL ES，把准备好的数据，从CPU端保存的数据传递给GPU端，保存在指定的texture object中。
+对于第一个参数，如果是给cube赋值，则需要一个面一个面的赋值6次，由不同的target指定是给立方体的哪一个面进行赋值。
+第三个参数internalformat，第七个参数format和第八个参数type，就是指定原始数据在从CPU传入GPU之前，在CPU中的格式信息，以及传入GPU之后，在GPU中的格式。internalformat，是用于指定纹理在GPU端的格式，只能是GL_ALPHA, GL_LUMINANCE, GL_LUMINANCE_ALPHA, GL_RGB, GL_RGBA。GL_ALPHA指的是每个像素点只有alpha通道，相当于RGB通道全为0。GL_LUMINANCE指的是每个像素点只有一个luminance值，相当于RGB的值全为luminance的值，alpha为1。GL_LUMINANCE_ALPHA指的是每个像素点有一个luminance值和一个alpha值，相当于RGB的值全为luminance的值，alpha值保持不变。GL_RGB指的是每个像素点有一个red、一个green值和一个blue值，相当于RGB的值保持不变，alpha为1。GL_RGBA指的是每个像素点有一个red、一个green值、一个blue值和一个alpha值，相当于RGBA的值都保持不变。如果internalformat是其他值，则会出现GL_INVALID_VALUE的错误。第七个参数format和第八个参数type，用于指定将会生成的纹理在所需要的信息在GPU中的存储格式，其中format指定通道信息，只能是GL_ALPHA, GL_RGB, GL_RGBA, GL_LUMINANCE, and GL_LUMINANCE_ALPHA。type指的每个通道的位数以及按照什么方式保存，到时候读取数据的时候是以byte还是以short来进行读取。只能是GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_5_6_5, GL_UNSIGNED_SHORT_4_4_4_4, and GL_UNSIGNED_SHORT_5_5_5_1。当type为GL_UNSIGNED_BYTE的时候，每一个byte都保存的是一个颜色通道中的值，当type为GL_UNSIGNED_SHORT_5_6_5, GL_UNSIGNED_SHORT_4_4_4_4, and GL_UNSIGNED_SHORT_5_5_5_1的时候，每个short值中将包含了一个像素点的所有颜色信息，也就是包含了所有的颜色通道的值。从CPU往GPU传输数据生成纹理的时候，会将这些格式的信息转成float值，方法是比如byte，那么就把值除以255，比如GL_UNSIGNED_SHORT_5_6_5，就把red和blue值除以31，green值除以63，然后再全部clamp到闭区间[0,1]，设计这种type使得绿色更加精确，是因为人类的视觉系统对绿色更敏感。而type为GL_UNSIGNED_SHORT_5_5_5_1使得只有1位存储透明信息，使得每个像素要么透明要么不透明，这种格式比较适合字体，这样可以使得颜色通道有更高的精度。如果format和type不是这些值，那么就会出现GL_INVALID_ENUM的错误。
+internalformat和format需要一一对应，而且确定了internalformat和format之后，type的选择也受到了限制，比如针对internalformat和format为GL_RGB的时候，type只能是GL_UNSIGNED_SHORT_5_6_5或者GL_UNSIGNED_BYTE。而internalformat和format为GL_ALPHA的时候，type只能是GL_UNSIGNED_BYTE。internal format、format和type必须要对应着使用。
+
+第四个参数width和第五个参数height就是原始图片的宽和高，也是新生成纹理的宽和高。因为两者是一样的，图片信息以数据的形式从CPU传到GPU，可能每个像素点格式和包含的信息会发生变化，但是图片的大小，也就是像素点的数量，每行多少个像素点，一共多少行，这个信息是不会发生变化的，这里我们说的像素点即是纹理像素texels，简称纹素。width和height不能小于0，也不能当target为GL_TEXTURE_2D的时候，超过GL_MAX_TEXTURE_SIZE，或者当target为其他情况的时候，超过GL_MAX_CUBE_MAP_TEXTURE_SIZE，否则，就会出现GL_INVALID_VALUE的错误。第6个参数border，代表着纹理是否有边线，写成0，也就是没有边线，最后一个输入参数data是CPU中一块指向保存实际数据的内存。如果data不为null，那么将会有width＊height个像素的data从CPU端的data开始读取，然后会被从CPU端传输并且更新格式保存到GPU端的texture object中。当然，从CPU读取数据的时候要遵守刚才glPixelStorei设置的对齐规则。其中第一个数据对应的是纹理中左下角那个顶点。然后第二个数据对应的是纹理最下面一行左边第二个点，依次类推，按照从左到右的顺序，然后一行完毕，从下往上再赋值下一行的顺序，一直到最后一个数据对应纹理中右上角那个顶点。如果data为null，那么执行完这个API之后，依然会给texture object分配可以保存width＊height那么多像素信息的内存，但是没有对这块内存进行初始化，如果使用这个texture去绘制到图片上，那么绘制出来的颜色值为undefine。可以通过glTexSubImage2D给这块没有初始化的内存赋值。
+
+这个函数没有输出参数。
+
+该API的输入为CPU内存中以某种方式保存的像素数据，转变成区间[0,1]的浮点型RGBA像素值，保存在GPU中的texture object内。
+
+一旦该命令被执行，会立即将图像像素数据从CPU传输到GPU的内存中，后续CPU数据的修改不会影响GPU中的texture object相关信息。所以在这个API执行之后，CPU中的图像数据就可以被删掉了。
+
+如果一个texture object中已经包含有内容了，那么依然可以使用glTexImage2D对这个texture object中的内容进行替换和更改。
+
+8.void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid * data)
+该函数只是修改texture object中的一部分指定的内容，不会对texture object的internalformat、width、height、参数以及指定部分之外的内容进行修改。
+第三个、第四个、第五个和第六个输入参数的意思是：以texture object的开始为起点，宽度进行xoffset个位置的偏移，高度进行yoffset个位置的偏移，从这个位置开始，宽度为width个单位高度为height的这么一块空间，使用data指向的一块CPU中的内存数据进行覆盖
+
+该函数没有输出
+
+9.void glCopyTexImage2D(GLenum target, GLint level, GLenum internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border)
+直接从GPU的绘制的buffer中读取一块内容拷贝过来，不需要再从CPU端进行拷贝。 level指的是mipmap的第几层。
+void glCopyTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+拷贝一块区域，同上
+
+10.void glTexParameter*(GLenum target, GLenum pname, GLint param)
+用于将生成的texture object中的纹理输出到显示buffer中，第一个参数，用于指定要显示的texture object的类型，GL_TEXTURE_2D或者CUBE_MAP等，
+第二个参数有四种选择，可以是GL_TEXTURE_MIN_FILTER, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_WRAP_S, 或者GL_TEXTURE_WRAP_T
+
+GL_TEXTURE_MIN_FILTER对应的六种算法
+GL_NEAREST，就是直接取原始纹理限定区域中最接近的一个像素的信息，作为映射点的信息，举个例子，比如将一个5*5的纹理，整张映射到3*3的一张图片上，那么理论上，映射图片的中间点应该就是从纹理的中间点取值。
+
+第二种是GL_LINEAR，就是根据原始纹理限定区域中最接近的四个像素的信息，计算出来一个加权平均值，作为映射点的信息，举个例子，还是比如将一个5*5的纹理，整张映射到3*3的一张图片上，那么理论上，映射图片左下角的点的值，应该就是根据纹理左下角四个点的值计算而来。
+
+第三种是GL_NEAREST_MIPMAP_NEAREST，就是先选择一张与映射图片大小最接近的mipmap层，然后从这个mipmap层中，取最接近的一个像素的信息，作为映射点的信息，举个例子，比如将一个64*64的纹理，整张映射到4*4的一张图片上，我们知道64*64的纹理有很多mipmap层，第0层的宽高就是64，第1层的宽高为32，依此类推，第5层的宽高为4，正好与映射图片大小一致。那么理论上，就取这第5层的像素点的信息，直接对应到映射图片的各个点上即可。
+
+第四种是GL_LINEAR_MIPMAP_NEAREST，就是先选择一张与映射图片大小最接近的mipmap层，然后从这个mipmap层中，取最接近的四个像素的信息，计算出来一个加权平均值，作为映射点的信息，举个例子，还是比如将一个64*64的纹理，整张映射到4*4的一张图片上，我们还是会选择第5层mipmap，然后理论上，映射图片左下角的点的值，应该就是根据这第5层mipmap左下角四个点的值计算出来的加权平均值。
+
+第五种是GL_NEAREST_MIPMAP_LINEAR，就是先选择两张与映射图片大小最接近的mipmap层，然后从这两个mipmap层中，分别取最接近的一个像素的信息，计算出来一个加权平均值，作为映射点的信息，举个例子，比如将一个64*64的纹理，整张映射到5*5的一张图片上，我们就会取第4层和第5层mipmap，然后理论上，映射图片左下角的点的值，应该就是根据第4层mipmap左下角点的值和第5层mipmap左下角点的值计算出来的加权平均值。
+
+第六种是GL_LINEAR_MIPMAP_LINEAR，这种算法最复杂。就是先选择两张与映射图片大小最接近的mipmap层，然后从这两个mipmap层中，分别取四个最接近的像素的信息，分别计算加权平均值，然后根据这两个加权平均值，再计算出来一个加权平均值，作为映射点的信息，举个例子，还是比如将一个64*64的纹理，整张映射到5*5的一张图片上，我们还是会选择第4层和第5层mipmap，然后理论上，映射图片左下角的点的值，应该就是根据这第4层mipmap左下角四个点的值计算出来的加权平均值与第5层mipmap左下角四个点的值计算出来的加权平均值，算出来的加权平均值
+
+第二个纹理属性，GL_TEXTURE_MAG_FILTER，与GL_TEXTURE_MIN_FILTER相反，它是用于纹理被使用的那块区域尺寸大于纹理尺寸，需要将纹理放大的情况，针对这种情况，只有两种映射算法，GL_NEAREST和GL_LINEAR。
+
+GL_TEXTURE_WRAP_S和GL_TEXTURE_WRAP_T，这两个个属性与纹理坐标息息相关，默认我们理解纹理的uv坐标最大值就是宽和高，st值就是[0,1]。但是，其实也有超过了[0,1]的情况，意思也就是想通过纹理坐标去纹理上取值，但是取到了纹理外面了，那么我们可以想象到，可以把纹理外面包一层，这一层的内容都是根据纹理的内容设置的，这个不是简单的把纹理拉大，而是把纹理外面套一层，套的这一层的内容就是根据这两个属性指定的算法计算出来的。这两个属性支持的算法都是只有三个，分别是GL_CLAMP_TO_EDGE, GL_REPEAT, 和 GL_MIRRORED_REPEAT。
+
+将GL_TEXTURE_WRAP_S设置为GL_CLAMP_TO_EDGE的意思就是，假如s坐标超过范围[0,1]，那么纹理外面套的那一层，横向部分，以纹理的边界值的颜色进行填充，假如纹理图片的边为黑色，内部为白色，那么会横向填充黑色。
+
+将GL_TEXTURE_WRAP_S设置为GL_REPEAT的意思就是，假如s坐标超过范围[0,1]，那么纹理外面套的那一层，横向部分，则对纹理图片进行复制，将横向完全填满。
+
+将GL_TEXTURE_WRAP_S设置为GL_MIRRORED_REPEAT的话，与设置为GL_REPEAT类似，假如s坐标超过范围[0,1]，那么纹理外面套的那一层，横向部分，则对纹理图片进行镜像复制，将横向完全填满。
+
+GL_TEXTURE_WRAP_S都是进行横向填充，GL_TEXTURE_WRAP_T则是进行纵向填充。GL_TEXTURE_WRAP_S和GL_TEXTURE_WRAP_T的默认算法都是GL_REPEAT。
+
+所以这个api的第二个和第三个参数是要这样配套使用的，使用不配套则会出现报错的情况
+
+11.void glGenerateMipmap(GLenum target)
+Mipmap又称多级纹理，每个纹理都可以有mipmap，也可以没有mipmap。有mipmap的texture就好比一层一层塔一样，每一层都需要赋值。纹理texture object就是GPU中一块内存，这块内存中保存着一定宽高的颜色信息以及其他属性信息。而一个texture object中可以包含不止一块内存，mipmap的texture object就包含着多级内存的。比如，我们创建的texture object的宽和高为32*32，那么我们知道，当纹理被准备好的时候，会拥有一块可以存放32*32个像素点颜色信息的内存。如果我们通过命令使得texture object包含多级内存，第一级内存就是刚才那块保存了32*32个像素点颜色信息的内存，而第二级内存就是保存了16*16个像素点颜色信息的内存，依次类推，每降低以及，宽和高都将缩小一倍，一直到第六级内存就是保存了1*1个像素点颜色信息的内存。也就是说，宽高为32*32的纹理，如果生成多级纹理，就会多出5块内存，大小分别是16*16,8*8,4*4,2*2,1*1。如果object为16*8的，则会分别生成8*4,4*2,2*1,1*1的内存。当生成多级纹理之后，我们使用texture object name指定的texture object，就是这个包含了多级纹理的纹理。
+在使用glTexImage2D这个API的时候，说过纹理的内存是通过这个API生成的，当使用这个API的时候，第二个输入参数就是制定给纹理的第几层赋值，当时我们都是给第0层赋值，那么现在我们就知道了，第0层为纹理的base level，那么默认都是给第0层赋值，但是我们也可以通过这个API给纹理的第1层mipmap，第2层mipmap赋值，一直到第N层mipmap。而这个在给第i层mipmap赋值的时候顺便也就把需要的内存生成出来。我们也说过每个纹理的mipmap是有限制的，比如32*32的texture只能有6层mipmap，而64*64的texture有7层mipmap，依次类推。但是通过这个方式，一次只能给一层mipmap赋值，将多级纹理的所有层都赋上值，需要调用好多次这个glTexImage2D的API。所以就有了glGenerateMipmap这个函数。
+这个函数就是将一个base level已经准备好的纹理，生成它的各级mipmap。这两种方式唯一的区别在于，通过glTexImage2D赋值的时候，对应texture object对应的内存存放的值是由开发者指定的，开发者可以往里面随意存入数值，而通过glGenerateMipmap这个函数生成的多级纹理中存储的值，第i层的值都是直接或者间接根据第0层的值计算出来的。
+
+该API入参用于指定texture object的类型，TEXTURE_2D或者CUBE_MAP，无输出参数。
+
+12.void glDeleteTextures(GLsizei n, const GLuint * textures)
+纹理一旦被传输至GPU，就会一直留在GPU管理的内存中。那些不再被使用的纹理，应当及时的从GPU内存中删除它们，以减少应用程序内存的占用。所以当texture不再被需要的时候，则可以通过glDeleteTextures这个API把texture object name删除。
+
+这个函数的输入参数的意思是该API会删除n个texture object，当n小于0的时候，出现INVALID_VALUE的错误。textures保存的就是这些texture object的变量名。如果传入的变量名为0，或者对应的不是一个合法的texture object，那么API就会被忽略掉。
+
+这个函数没有输出参数。当texture object被删除之后，其中的内容也会被删掉，名字也会被释放，可以被glGenTextures重新使用。如果被删除的texture正在处于bind状态，那么就相当于先将该texture关联的纹理单元active，然后执行了一次glBindTexture把对应的binding变成binging 0，也就相当于什么都没有bind了。
+
+13.整个纹理相关的API的使用过程如下：
+(1)glGenTextures生成一个新的texture object name。
+(2)选择一个纹理单元，把这个texture object name生成纹理并绑定到这个纹理单元上。
+(3)通过glActiveTexture把纹理单元enable，然后再通过glBindTexture把这个texture与GL_TEXTURE_2D绑定，我们知道这个texture object name是刚创建的，所以在执行这个命令的时候，我们知道，会先生成一个2D的texture object，然后把这个texture object放入刚才enable的那个纹理单元中。(4)下面再通过glTexParameter对纹理设置参数。
+(5)之后会使用对应的API去生成纹理内容，比如通过glTexImage2D，传入了target GL_TEXTURE_2D，传入了第几层mipmap，传入了准备好的internalformat、宽、高、format、type和data信息。纹理图片经历了解包、归一划、转换为RGB格式、归一划的过程，存储到了GPU中。
+(6)在内存中，需要按照UNPACK_ALIGNMENT对齐。当CPU的纹理图片unpack到了GPU，开发者可以把CPU端的纹理图片删除。如果数据来源自CPU的JPG、PNG图片，这些格式图片不包含mipmap信息，而如果来自于pvr、etc之类的用于生成压缩纹理的原始图片，才可能会有mipmap信息。
+(7)如果需要的话，可通过glHint设置生成mipmap的算法，然后通过glGenerateMipmap生成mipmap信息。这样的话一张纹理就生成了。
+(8)当纹理使用完毕后，就要通过glDeleteTextures这个API把原来对应的纹理删除，并且把texture object name reset为0。
+
+
+
+
+
