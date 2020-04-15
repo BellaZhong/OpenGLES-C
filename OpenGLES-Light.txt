@@ -1,0 +1,70 @@
+光照模型简述
+
+Opengl ES采用的是简化的光照模型，冯氏光照模型(Phong Lighting Model)，其主要结构由3个元素构成，环境光Ambient，漫反射Diffuse，镜面反射Specular。
+
+环境(Ambient)光照：即使在最黑暗的正常环境下，世界上依然会存在一些光亮，也就是说物体几乎永远不会是完全黑暗的。环境光照一般是由室外的太阳通过各种折射来让我们看到，这样的光是没有任何起点，没有方向的光。主要通过设置物体颜色来获取。
+漫反射(Diffuse)光照：模拟光源对物体方向的影响，一个物体面向光源的时候，朝向光的那个面会亮一点，物体背面和其他面会暗一点。
+镜面(Specular)光照：模拟的是有光泽物体上面出现的亮点。就是反射方向一致的反射光，镜面光照的颜色相比于物体的颜色会更倾向于光的颜色。
+
+所以一般在shader中需要输入一些关键性的变量，光源颜色， 物体颜色，光源方向，光照方向，物体材质等
+
+光照计算
+
+环境光 = 光源的环境光颜色 x 物体的材质颜色
+varying vec3 objectColor;
+void main()
+{
+  //⾄少有20%的光照到物体所有面
+  float ambientStrength = 0.2;
+  //光源环境光颜⾊
+  vec3 ambient = ambientStrength * lightColor;
+  //环境光颜色 = 光源环境光颜色 * 物体颜色
+  vec3 result = ambient * objectColor;
+  fragPos = vec3(model * a_position);
+  gl_FragColor = vec4(result, 1.0);
+}
+
+漫反射计算
+uniform vec3 lightColor;    //光源颜色
+uniform vec3 lightPos;     //光源位置
+uniform vec3 objectColor; //物体颜色
+uniform vec3 viewPos;  //物体位置
+varying vec3 outNormal; //传⼊当前顶点平面的法向量
+
+//归一化法线为单位向量
+vec3 norm = normalize(outNormal); 
+//顶点指向光源 单位向量, fragPos是物体的坐标经过model变换
+vec3 lightDir = normalize(lightPos - fragPos);
+//得到两向量的cos值，做点积，⼩于0则为0
+float diff = max(dot(norm, lightDir),0.0); 
+//得到漫反射收的光源向量
+vec3 diffuse = diff * lightColor;
+vec3 result  = diffuse * ojbectColor;
+gl_FragColor = vec4(result,1.0);
+
+
+镜面反射计算
+//镜⾯反射强度，物体材质属性
+float specularStrength = 0.5;
+//顶点指向观察点的单位向量,viewPos由api指定，通过glUniform3f传入
+vec3 viewDir = normalize(viewPos - FragPos);
+//求得光线 在顶点的反射线(传⼊光源指向顶点的向量)
+vec3 reflectDir = reflect(-lightDir ,outNormal);
+// 求得夹⻆cos值 取256次幂
+float spec = pow(max(dot(viewDir, reflectDir),0.0),256.0);
+vec3 specular = specularStrength * spec * lightColor;
+
+最终看到的物体颜色
+vec3 result = (ambient + diffuse + specular) * texColor
+
+如果有衰减，则需要乘上衰减因子
+
+float dist = length(lightPos - fragPos);           
+float kc = 0.1;  //距离衰减常量                                   
+float kl = 0.05; //线性衰减常量                                  
+float kq = 0.05; //二次衰减常量                                  
+float attenuation = 1.0 / (kc + kl * dist + kq * (dist * dist));
+ambient *= attenuation;                             
+diffuse *= attenuation;                          
+specular *= attenuation;                            
+环境光，漫反射光和镜面光的强度都会受距离的增大⽽衰减，只有发射光和全局环境光的强度不会受影响.
