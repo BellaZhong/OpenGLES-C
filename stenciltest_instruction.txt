@@ -1,0 +1,39 @@
+关于stenciltest的简要说明
+
+glStencilFunc()
+glSetncilOp()
+
+glStencilFunc()，仅用于设定绘制规则，通过这个规则的测试，就会被画出来，否则，抛弃不画
+glStencilOp()，仅用于更新stencilbuffer，通过这个函数，我们能够很容易的更新stencil buffer的内容，写0还是写1
+
+glClear(GL_STENCIL_BUFFER_BIT)
+将所有的stencil buffer全部清空，注意这里的清空不是清零，是清成你设定的值，不设定的话就是默认为0，要设定可以选择
+glClearStencil()来指定，你要清空为什么值，1还是0
+
+glStencilFunc(GL_EQUAL, 1, 0xFF), 设置mask为0xFF，规则是当stencil buffer里的值，等于 ref为1的，视为通过测试，会被画出来
+glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
+//stencil fail, keep the current stencil buffer value
+//stencil pass, depth fail, keep the current stencil buffer value
+//stencil pass, depth pass, replace the current stencil buffer value with the ref 1
+当前所有stencil buffer被清为0，0 & 0xFF = 0, ref的值 1 & 0xFF = 1，0 != 1, stencil test fail, 这里假设不启用depth test, 则depth always fail, 因此我们会保留stencil buffer的值为0
+
+glStencilFunc(GL_ALWAYS, 1, 0xFF)，规则是，无论stencil buffer里是什么值，始终通过测试，全部通过，都画出来
+glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
+当前所有stencil buffer被清为0，0 & 0xFF = 0, ref的值 1 & 0xFF = 1，0 != 1, stencil test always pass, 这里假设depth pass, 因此我们会替换stencil buffer的值为1，画出当前所有的图形片段
+
+glStencilFunc(GL_ALWAYS, 0, 0x00), 规则是，无论stencil buffer里是什么值，始终通过测试，全部通过，都画出来
+glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
+当前所有stencil buffer被清为0，0 & 0xFF = 0, ref的值 1 & 0xFF = 1，0 != 1, stencil test always pass, 这里假设depth pass, 因此我们会替换stencil buffer的值为0，画出当前所有的图形片段
+
+画轮廓思路：
+先画大的cube，再画小的cube, 保证颜色不一样就能看出来是一个边的感觉
+glClear(GL_STENCIL_BUFFER_BIT)
+glDisable(GL_DEPTH_TEST)
+
+//draw outline
+glStencilFunc(GL_ALWAYS, 1, 0xFF)
+glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
+
+//draw cube
+glStencilFunc(GL_ALWAYS, 0, 0x00)
+glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
